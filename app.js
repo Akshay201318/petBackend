@@ -5,8 +5,9 @@ var cookieParser = require("cookie-parser");
 var logger = require("morgan");
 const cors = require("cors");
 const fileUpload = require("express-fileupload");
-var indexRouter = require("./routes/index");
-var usersRouter = require("./routes/users");
+var router = express.Router();
+// var indexRouter = require("./routes/index");
+// var usersRouter = require("./routes/users");
 var db = require("./config/mongoose");
 var app = express();
 const User = require("./models/user");
@@ -21,8 +22,6 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
-app.use("/", indexRouter);
-app.use("/users", usersRouter);
 app.use(cors());
 app.use(fileUpload());
 // catch 404 and forward to error handler
@@ -33,14 +32,19 @@ app.use(fileUpload());
 app.post("/register", async function (req, res) {
   let user = await User.create(req.body.data);
   console.log("this is my user", user);
-  return res.send("hello");
+  return res.send(user);
 });
-
-// app.get("/data", function (req, res) {
-//   console.log(req.body.data.name);
-//   return res.send({ name: "Panchal", email: "akshay@daffodilsw.com" });
-// });
-
+app.post("/login", async function (req, res) {
+  console.log(req.body.data.email);
+  try {
+    let user = await User.find({ email: req.body.data.email });
+    console.log("this is my user", user);
+    return res.send(user);
+  } catch (e) {
+    console.log("Error in user login");
+  }
+});
+app.use("/", require("./routes/index"));
 // error handler
 app.use(function (err, req, res, next) {
   // set locals, only providing error in development

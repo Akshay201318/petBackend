@@ -1,14 +1,10 @@
+const { response } = require("express");
 var express = require("express");
 var router = express.Router();
 
 /* GET home page. */
-// router.use("/", async function (req, res) {
-//   console.log("Inside th get request");
-//   // const user = await User.findById(req.body.data.email);
-//   // if (user) {
-//   //   return res.send(user);
-//   // }
-//   return res.send("UserError");
-// });
+router.get("/", function (req, res) {
+  res.send("Hello express");
+});
 
 module.exports = router;

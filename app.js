@@ -4,6 +4,9 @@ var path = require("path");
 var cookieParser = require("cookie-parser");
 var logger = require("morgan");
 const cors = require("cors");
+const passport = require("passport");
+const passportJwt = require("./config/passportJwt");
+const jwt = require("jsonwebtoken");
 const fileUpload = require("express-fileupload");
 var router = express.Router();
 // var indexRouter = require("./routes/index");
@@ -24,10 +27,13 @@ const multer = require("multer");
 //     cb(null, "mypost" + Date.now() + ".png");
 //   },
 // });
+let imagename = "";
 const storage = multer.diskStorage({
   destination: "uploads",
   filename: function (req, file, cb) {
-    cb(null, file.name + "-" + Date.now() + path.extname(file.originalname));
+    imagename =
+      file.fieldname + "-" + Date.now() + path.extname(file.originalname);
+    cb(null, imagename);
   },
 });
 
@@ -40,7 +46,7 @@ app.use(logger("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static("uploads"));
 
 app.use(cors());
 // app.use(fileUpload());
@@ -60,55 +66,60 @@ app.use(cors());
 
 // var upload = multer({ storage: storage });
 
-app.post("/register", async function (req, res) {
+app.post("/register", async (req, res) => {
   let user = await User.create(req.body.data);
   console.log("this is my user", user);
   return res.send(user);
 });
-app.post("/login", async function (req, res) {
-  console.log(req.body.data.email);
-  try {
-    let user = await User.find({ email: req.body.data.email });
-    if (user.length > 0) {
-      console.log(user[0].password);
-      if (user[0].password === req.body.data.password) {
-        return res.send(user);
-      }
+app.post("/login", async (req, res) => {
+  // console.log(req.body.data.email);
+  // try {
+  //   let user = await User.find({ email: req.body.data.email });
+  //   if (user.length > 0) {
+  //     console.log(user[0].password);
+  //     if (user[0].password === req.body.data.password) {
+  //       return res.send(user);
+  //     }
 
-      return res.send(false);
-    } else {
-      console.log("this is my user elseeee", user);
-      return res.send(false);
+  //     return res.send(false);
+  //   } else {
+  //     console.log("this is my user elseeee", user);
+  //     return res.send(false);
+  //   }
+  // } catch (e) {
+  //   console.log("Error in user login");
+  // }
+
+  try {
+    let user = await User.findOne({ email: req.body.data.email });
+
+    if (!user || user.password != req.body.data.password) {
+      return res.status(422).json({
+        message: "Invalid username or password",
+      });
     }
-  } catch (e) {
-    console.log("Error in user login");
+    console.log(user);
+    return res.status(200).json({
+      message: "SignIn successfully!!",
+      data: {
+        token: jwt.sign(user.toJSON(), "petsocial"),
+      },
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+    });
+  } catch (err) {
+    console.log("*******", err);
+    return res.status(200).json({
+      message: "Internal Server Error",
+    });
   }
 });
 
-app.post("/post", async (req, res) => {
-  // try
-  // Posts.uploadedPost(req, res, (err) => {
-  //   if (err) {
-  //     console.log("multer error", err);
-  //     return res.send(false);
-  //   }
-  //   console.log(req.body.data.avatar);
-  // });
-  console.log(req.files);
-
-  //   let post = await Posts.create({
-  //     content: req.body.data.content,
-  //     user: req.body.data.userId,
-  //   });
-  //   if (post) {
-  //     console.log(post);
-  //     return res.send(post);
-  //   } else {
-  //     return res.send(false);
-  //   }
-  // } catch (err) {
-  //   console.log("error in creating post");
-  // }
+app.get("/post", async (req, res) => {
+  let posts = await Posts.find();
+  console.log(posts);
+  return res.send(posts);
 });
 app.post("/postImage", async (req, res) => {
   // try
@@ -120,30 +131,37 @@ app.post("/postImage", async (req, res) => {
   //   console.log(req.body.data.avatar);
   // });
 
-  upload(req, res, (err) => {
+  upload(req, res, async (err) => {
     if (err) {
       console.log("error in uploading the image");
     } else {
-      console.log(req.file);
-      console.log(req.body);
-      return res.send(false);
+      // console.log(req.file);
+      // console.log(req.body);
+      try {
+        req.body.avatar = imagename;
+        let post = await Posts.create(req.body);
+        if (post) {
+          console.log(post);
+          return res.send(true);
+        } else {
+          return res.send(false);
+        }
+      } catch (err) {
+        res.send(false);
+      }
     }
   });
+});
 
-  console.log(__dirname + "/uploads");
-  //   let post = await Posts.create({
-  //     content: req.body.data.content,
-  //     user: req.body.data.userId,
-  //   });
-  //   if (post) {
-  //     console.log(post);
-  //     return res.send(post);
-  //   } else {
-  //     return res.send(false);
-  //   }
-  // } catch (err) {
-  //   console.log("error in creating post");
-  // }
+app.post("/singlepost", async (req, res) => {
+  let post = await Posts.findById(req.body.data);
+  if (post) {
+    res.status(200).json(post);
+  } else {
+    res.status(500).json({
+      message: "Post ot found",
+    });
+  }
 });
 
 app.use("/", require("./routes/index"));
